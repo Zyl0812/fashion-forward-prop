@@ -1,0 +1,29 @@
+from smart_image_similarity.common.paths import CATALOG_DIR, LABELS_PATH, MODELS_DIR
+
+
+classification_names = {
+    0: "上身衣服",
+    1: "鞋",
+    2: "包",
+    3: "下身衣服",
+    4: "手表",
+}
+
+FASHION_LABELS_PATH = LABELS_PATH
+IMG_PATH = CATALOG_DIR
+IMG_H = 64
+IMG_W = 64
+
+SEED = 42
+TRAIN_RATIO = 0.7
+VAL_RATIO = 0.15
+TEST_RATIO = 0.15
+
+LEARNING_RATE = 1e-3
+EPOCHS = 20
+TRAIN_BATCH_SIZE = 32
+VAL_BATCH_SIZE = 32
+TEST_BATCH_SIZE = 32
+
+CLASSIFIER_MODEL_NAME = "classifier.pt"
+CLASSIFIER_MODEL_PATH = MODELS_DIR / CLASSIFIER_MODEL_NAME

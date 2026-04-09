@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNN 教学演示 · 智能商品识别系统</title>
+<style>
+  :root {
+    /* ── 亮色主题（Parchment） ── */
+    --bg:          #f5f4ed;
+    --surface:     #faf9f5;
+    --border:      #e8e6dc;
+    --text-1:      #141413;
+    --text-2:      #5e5d59;
+    --text-3:      #87867f;
+    --terracotta:  #c96442;
+    --coral:       #d97757;
+    --teal:        #14b8a6;
+    --radius-card: 12px;
+    --radius-btn:  8px;
+    --shadow-card: rgba(0,0,0,0.05) 0px 4px 24px;
+    /* ── 暗色区（CNN 章节） ── */
+    --dark-bg:      #141413;
+    --dark-surface: #30302e;
+    --dark-border:  #3d3d3a;
+    --dark-text-1:  #faf9f5;
+    --dark-text-2:  #b0aea5;
+    --dark-text-3:  #87867f;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text-1);
+    font-family: system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── 页头（亮色） ── */
+  header {
+    width: 100%;
+    max-width: 1200px;
+    padding: 56px 24px 20px;
+    text-align: center;
+  }
+  header h1 {
+    font-family: Georgia, serif;
+    font-size: 36px;
+    font-weight: 500;
+    line-height: 1.20;
+    color: var(--text-1);
+  }
+  header p {
+    margin-top: 12px;
+    font-size: 17px;
+    line-height: 1.60;
+    color: var(--text-2);
+  }
+
+  /* ── 阶段容器 ── */
+  .stage { width: 100%; max-width: 1200px; padding: 24px; }
+  .stage.hidden { display: none !important; }
+
+  /* ── 选图阶段（亮色） ── */
+  .section-label {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 16px;
+  }
+  #thumbnail-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+  }
+  .thumb-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 5px;
+    cursor: pointer;
+    transition: box-shadow 0.2s, transform 0.15s;
+    box-shadow: var(--shadow-card);
+  }
+  .thumb-card:hover {
+    box-shadow: 0px 0px 0px 2px var(--terracotta), var(--shadow-card);
+    transform: scale(1.04);
+  }
+  .thumb-card.selected {
+    box-shadow: 0px 0px 0px 3px var(--terracotta);
+    transform: scale(1.05);
+  }
+  .thumb-card img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 5px;
+    display: block;
+  }
+
+  /* ── 飞行图片（转场用，fixed 定位） ── */
+  #flying-image {
+    position: fixed;
+    pointer-events: none;
+    border-radius: 8px;
+    border: 2px solid var(--terracotta);
+    z-index: 1000;
+    object-fit: cover;
+    transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 1;
+  }
+  #flying-image.hidden { display: none; }
+
+  /* ── CNN 阶段（羊皮纸色全幅区域） ── */
+  #stage-cnn {
+    max-width: 100%;
+    background: var(--bg);
+    padding: 40px 5% 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    opacity: 0;
+  }
+  #cnn-canvas {
+    width: 100%;
+    aspect-ratio: 1100 / 320;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+  .cnn-legend {
+    display: flex;
+    gap: 24px;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  .legend-dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+
+  /* ── 结果阶段（亮色） ── */
+  #stage-results {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 20px;
+    box-shadow: var(--shadow-card);
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .result-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .result-card h3 {
+    font-family: Georgia, serif;
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 1.20;
+    color: var(--text-1);
+    margin-bottom: 12px;
+  }
+  .result-card h3 .dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  /* 去噪结果 */
+  .denoise-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .denoise-pair img {
+    width: 100%;
+    border-radius: 8px;
+    image-rendering: pixelated;
+  }
+  .denoise-pair .pair-label {
+    font-size: 11px;
+    color: var(--text-3);
+    text-align: center;
+    margin-top: 4px;
+  }
+
+  /* 分类结果 */
+  .classify-result {
+    text-align: center;
+    padding: 12px 0;
+  }
+  .classify-result .category {
+    font-family: Georgia, serif;
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--text-1);
+    margin-bottom: 6px;
+  }
+  .classify-result .raw-text {
+    font-size: 13px;
+    color: var(--text-3);
+    line-height: 1.60;
+  }
+
+  /* 相似结果 */
+  .sim-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+  .sim-grid img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 6px;
+  }
+  .sim-hint {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 8px;
+    text-align: center;
+  }
+
+  /* ── 重置按钮（亮色页面上的 Terracotta CTA） ── */
+  #reset-btn {
+    display: none;
+    margin: 24px auto 48px;
+    background: var(--terracotta);
+    color: #faf9f5;
+    border: none;
+    padding: 9px 20px;
+    border-radius: var(--radius-btn);
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0px 0px 0px 1px var(--terracotta);
+    transition: opacity 0.2s;
+  }
+  #reset-btn:hover { opacity: 0.85; }
+
+  /* ── 等待提示 ── */
+  .api-waiting {
+    font-size: 13px;
+    color: var(--text-3);
+    text-align: center;
+    padding: 12px 0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CNN 前向传播教学演示</h1>
+  <p>选择一张商品图片，观察卷积神经网络如何逐层提取特征，完成去噪、分类与相似检索</p>
+</header>
+
+<!-- 阶段1：选图 -->
+<div id="stage-select" class="stage">
+  <p class="section-label">选择示例图片</p>
+  <div id="thumbnail-grid"><!-- JS 动态渲染 --></div>
+</div>
+
+<!-- 飞行图片（转场） -->
+<img id="flying-image" class="hidden" src="" alt="" />
+
+<!-- 阶段2：CNN 动画 -->
+<div id="stage-cnn" class="stage hidden">
+  <canvas id="cnn-canvas" width="1100" height="320"></canvas>
+  <div class="cnn-legend">
+    <span><span class="legend-dot" style="background:#c96442"></span>分类器路径</span>
+    <span><span class="legend-dot" style="background:#14b8a6"></span>编码器路径</span>
+    <span><span class="legend-dot" style="background:#d97757"></span>去噪路径</span>
+  </div>
+</div>
+
+<!-- 阶段3：结果 -->
+<div id="stage-results" class="stage hidden">
+  <div id="result-denoising" class="result-card">
+    <h3><span class="dot" style="background:#d97757"></span>图像去噪</h3>
+    <div class="api-waiting">等待推理结果…</div>
+  </div>
+  <div id="result-classification" class="result-card">
+    <h3><span class="dot" style="background:#c96442"></span>商品分类</h3>
+    <div class="api-waiting">等待推理结果…</div>
+  </div>
+  <div id="result-similarity" class="result-card">
+    <h3><span class="dot" style="background:#14b8a6"></span>相似检索</h3>
+    <div class="api-waiting">等待推理结果…</div>
+  </div>
+</div>
+
+<button id="reset-btn">← 重新选择</button>
+
+<script>
+// ─────────────────────────────────────────
+// 配置：经过 CSV 验证的真实图片 ID
+// ─────────────────────────────────────────
+const DEMO_IMAGES = [
+  { id: 3,   label: '上衣' },
+  { id: 5,   label: '上衣' },
+  { id: 6,   label: '上衣' },
+  { id: 20,  label: '鞋'   },
+  { id: 21,  label: '鞋'   },
+  { id: 22,  label: '鞋'   },
+  { id: 118, label: '包'   },
+  { id: 119, label: '包'   },
+  { id: 120, label: '包'   },
+  { id: 0,   label: '下装' },
+  { id: 1,   label: '下装' },
+  { id: 2,   label: '下装' },
+  { id: 60,  label: '手表' },
+  { id: 64,  label: '手表' },
+  { id: 65,  label: '手表' },
+];
+
+// 全局状态
+let selectedImage = null; // { id, label, blob }
+
+// ─────────────────────────────────────────
+// 渲染缩略图网格
+// ─────────────────────────────────────────
+function renderThumbnails() {
+  const grid = document.getElementById('thumbnail-grid');
+  grid.innerHTML = '';
+  DEMO_IMAGES.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'thumb-card';
+    card.dataset.id = item.id;
+
+    const img = document.createElement('img');
+    img.src = `/dataset/${item.id}.jpg`;
+    img.alt = item.label;
+    img.loading = 'lazy';
+    img.onerror = () => { img.removeAttribute('src'); img.style.background = '#e8e6dc'; };
+
+    card.appendChild(img);
+    card.addEventListener('click', () => onThumbnailClick(item, card, img));
+    grid.appendChild(card);
+  });
+}
+
+// 页面加载后立即渲染
+document.addEventListener('DOMContentLoaded', renderThumbnails);
+
+// ─────────────────────────────────────────
+// 点击缩略图（后续任务填充转场逻辑）
+// ─────────────────────────────────────────
+async function onThumbnailClick(item, card, imgEl) {
+  document.querySelectorAll('.thumb-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  selectedImage = { id: item.id, label: item.label, blob: null };
+
+  // 1. 预加载图片 Blob（供后续 API 调用）
+  const resp = await fetch(`/dataset/${item.id}.jpg`);
+  selectedImage.blob = await resp.blob();
+
+  // 2. 读取缩略图的屏幕位置
+  const rect = imgEl.getBoundingClientRect();
+
+  // 3. 定位飞行图片到缩略图位置
+  const fly = document.getElementById('flying-image');
+  fly.src = imgEl.src;
+  fly.classList.remove('hidden');
+  fly.style.transition = 'none';
+  fly.style.left   = rect.left + 'px';
+  fly.style.top    = rect.top  + 'px';
+  fly.style.width  = rect.width + 'px';
+  fly.style.height = rect.height + 'px';
+  fly.style.opacity = '1';
+
+  // 4. 获取 Canvas 左侧输入区目标位置
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const canvasStage = document.getElementById('stage-cnn');
+      canvasStage.classList.remove('hidden');
+      canvasStage.style.opacity = '0';
+      canvasStage.style.transition = 'none';
+
+      const canvas = document.getElementById('cnn-canvas');
+      const canvasRect = canvas.getBoundingClientRect();
+      const targetLeft = canvasRect.left + 18;
+      const targetTop  = canvasRect.top  + 18;
+      const targetSize = 64;
+
+      fly.style.transition = 'all 0.7s cubic-bezier(0.4, 0, 0.2, 1)';
+      fly.style.left   = targetLeft + 'px';
+      fly.style.top    = targetTop  + 'px';
+      fly.style.width  = targetSize + 'px';
+      fly.style.height = targetSize + 'px';
+    });
+  });
+
+  // 5. 转场结束后：隐藏选图阶段，显示 CNN 阶段
+  fly.addEventListener('transitionend', function handler() {
+    fly.removeEventListener('transitionend', handler);
+    fly.classList.add('hidden');
+    document.getElementById('stage-select').classList.add('hidden');
+    canvasStageReveal();
+  }, { once: true });
+}
+
+function canvasStageReveal() {
+  const canvasStage = document.getElementById('stage-cnn');
+  canvasStage.style.transition = 'opacity 0.4s ease';
+  canvasStage.style.opacity = '1';
+
+  const canvas = document.getElementById('cnn-canvas');
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.src = `/dataset/${selectedImage.id}.jpg`;
+  img.onload = () => {
+    drawNetwork(ctx, img, {});
+    startAnimation(ctx, img);
+  };
+}
+
+function resetDemo() {
+  // 终止正在运行的动画循环
+  if (animRafId !== null) {
+    cancelAnimationFrame(animRafId);
+    animRafId = null;
+  }
+
+  // 清空 Canvas
+  const canvas = document.getElementById('cnn-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 重置结果卡片内容与可见性
+  const defaultCards = [
+    { id: 'result-denoising',     color: '#d97757', label: '图像去噪' },
+    { id: 'result-classification', color: '#c96442', label: '商品分类' },
+    { id: 'result-similarity',    color: '#14b8a6', label: '相似检索' },
+  ];
+  defaultCards.forEach(({ id, color, label }) => {
+    const card = document.getElementById(id);
+    card.classList.remove('visible');
+    card.innerHTML = `<h3><span class="dot" style="background:${color}"></span>${label}</h3>
+      <div class="api-waiting">等待推理结果…</div>`;
+  });
+  // 移除动态添加的错误卡片
+  document.querySelectorAll('#stage-results .result-card:not([id])').forEach(el => el.remove());
+
+  // 切换阶段显示
+  document.getElementById('stage-results').classList.add('hidden');
+  const canvasStage = document.getElementById('stage-cnn');
+  canvasStage.classList.add('hidden');
+  canvasStage.style.opacity = '0';
+
+  // 隐藏重置按钮
+  document.getElementById('reset-btn').style.display = 'none';
+
+  // 恢复选图阶段
+  document.getElementById('stage-select').classList.remove('hidden');
+  document.querySelectorAll('.thumb-card').forEach(c => c.classList.remove('selected'));
+  selectedImage = null;
+}
+
+// 绑定重置按钮
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('reset-btn').addEventListener('click', resetDemo);
+});
+
+// ─────────────────────────────────────────
+// Canvas 绘制
+// ─────────────────────────────────────────
+const C_TERRACOTTA = '#c96442';
+const C_CORAL      = '#d97757';
+const C_TEAL       = '#14b8a6';
+const C_TEXT2      = '#5e5d59';
+const C_TEXT3      = '#87867f';
+const C_SURFACE    = '#c2c0b6'; // 亮色背景下的非激活节点色（暖灰）
+
+// 预定义网络节点坐标
+const NET = {
+  // 分类器路径
+  input_top: { x: 18, y: 18, w: 64, h: 64 },
+  conv1: [150].flatMap(x => [35,55,75,95,115].map(y => ({ x, y }))),
+  feat1: { x: 172, ys: [30,52,74,96], size: 18 },
+  pool1: { x: 248, y: 55, size: 26 },
+  conv2: [320].flatMap(x => [30,50,70,90,110,130].map(y => ({ x, y }))),
+  feat2: { x: 342, ys: [28,50,72,94], size: 18 },
+  pool2: { x: 418, y: 55, size: 26 },
+  fc_l:  [530].flatMap(x => [42,72,102].map(y => ({ x, y }))),
+  fc_r:  [590].flatMap(x => [42,72,102].map(y => ({ x, y }))),
+  output: [690].flatMap(x => [32,57,82,107,132].map(y => ({ x, y }))),
+
+  // 编码器路径
+  input_bot: { x: 18, y: 185, w: 64, h: 64 },
+  enc: [
+    [150, [200,228,256]],
+    [240, [200,228,256]],
+    [330, [200,228,256]],
+    [420, [200,228,256]],
+    [510, [200,228,256]],
+  ].map(([x, ys]) => ys.map(y => ({ x, y }))),
+  vec512: { x: 660, y: 230, r: 28 },
+};
+
+// 热力图颜色（蓝→绿→黄→橙→红）
+function heatColor(v) { // v ∈ [0,1]
+  const colors = ['#1d4ed8','#0891b2','#059669','#65a30d','#ca8a04','#ea580c','#dc2626'];
+  const i = Math.floor(v * (colors.length - 1));
+  return colors[Math.min(i, colors.length - 1)];
+}
+
+// 绘制单个神经元节点
+function drawNeuron(ctx, x, y, r, color, glow = 0) {
+  if (glow > 0) {
+    ctx.shadowBlur = glow;
+    ctx.shadowColor = color;
+  }
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+}
+
+// 绘制特征图格子
+function drawFeatureMap(ctx, x, y, size, activated = false) {
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 4; col++) {
+      // Use position-based pseudo-random so colors are stable across rAF frames
+      const seed = (x * 31 + y * 17 + row * 7 + col * 3) % 100 / 100;
+      const v = activated ? seed : 0.1;
+      ctx.fillStyle = activated ? heatColor(v) : C_SURFACE;
+      ctx.fillRect(x + col * (size / 4), y + row * (size / 4), size / 4 - 1, size / 4 - 1);
+    }
+  }
+}
+
+// 绘制池化层方块
+function drawPool(ctx, x, y, size, activated = false) {
+  ctx.strokeStyle = activated ? C_CORAL : C_SURFACE;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x, y, size, size);
+  if (activated) {
+    ctx.fillStyle = C_CORAL + '33';
+    ctx.fillRect(x, y, size, size);
+  }
+  // 向下箭头
+  ctx.beginPath();
+  ctx.moveTo(x + size / 2, y - 6);
+  ctx.lineTo(x + size / 2, y + size + 6);
+  ctx.strokeStyle = activated ? C_CORAL : C_SURFACE;
+  ctx.stroke();
+}
+
+// 绘制分类器层间连线（一对多扇形）
+function drawFan(ctx, fromX, fromY, toNodes, activated = false, color = C_CORAL) {
+  ctx.save();
+  ctx.globalAlpha = activated ? 0.35 : 0.12;
+  ctx.strokeStyle = activated ? color : C_TEXT3;
+  ctx.lineWidth = 0.8;
+  toNodes.forEach(n => {
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.lineTo(n.x, n.y);
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+// 绘制全连接线（低透明度）
+function drawFCLines(ctx, left, right, activated = false) {
+  left.forEach(a => {
+    right.forEach(b => {
+      ctx.beginPath();
+      ctx.moveTo(a.x + 5, a.y);
+      ctx.lineTo(b.x - 5, b.y);
+      ctx.strokeStyle = activated ? C_TERRACOTTA + '55' : C_SURFACE + '88';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    });
+  });
+}
+
+// 绘制编码器层间连线
+function drawEncConnections(ctx, from, to, activated = false) {
+  from.forEach(a => {
+    to.forEach(b => {
+      ctx.beginPath();
+      ctx.moveTo(a.x + 5, a.y);
+      ctx.lineTo(b.x - 5, b.y);
+      ctx.strokeStyle = activated ? C_TEAL + '44' : C_SURFACE + '66';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    });
+  });
+}
+
+// 绘制层标签
+function drawLabel(ctx, text, x, y, color = C_TEXT3) {
+  ctx.fillStyle = color;
+  ctx.font = '500 11px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, x, y);
+}
+
+// ─────────────────────────────────────────
+// 主绘制函数（state 控制各层激活状态）
+// state: { conv1On, pool1On, conv2On, pool2On, fcOn, outIdx,
+//          enc1On..enc5On, vecOn }
+// ─────────────────────────────────────────
+function drawNetwork(ctx, img, state = {}) {
+  const {
+    conv1On=false, feat1On=false, pool1On=false, conv2On=false, pool2On=false,
+    fcOn=false, outIdx=-1,
+    enc1On=false, enc2On=false, enc3On=false, enc4On=false, enc5On=false,
+    vecOn=false,
+  } = state;
+
+  ctx.clearRect(0, 0, 1100, 320);
+
+  // ── 分类器路径 ──
+
+  // 输入图（分类器侧）
+  if (img) ctx.drawImage(img, NET.input_top.x, NET.input_top.y, 64, 64);
+  drawLabel(ctx, 'INPUT', NET.input_top.x + 32, NET.input_top.y + 78);
+
+  // input → conv1 连线
+  drawFan(ctx, 82, 50, NET.conv1, conv1On, C_CORAL);
+
+  // Conv1 节点（分类器放大 r=7）
+  NET.conv1.forEach(n => drawNeuron(ctx, n.x, n.y, 7, conv1On ? C_CORAL : C_SURFACE, conv1On ? 14 : 0));
+
+  // conv1 → feat1 连线（取 feat1 各行中心点）
+  const feat1Centers = NET.feat1.ys.map(fy => ({ x: NET.feat1.x + NET.feat1.size / 2, y: fy + NET.feat1.size / 2 }));
+  NET.conv1.forEach(n => drawFan(ctx, n.x, n.y, feat1Centers, feat1On, C_CORAL));
+
+  // Conv1 特征图
+  NET.feat1.ys.forEach((fy) => drawFeatureMap(ctx, NET.feat1.x, fy, NET.feat1.size, feat1On));
+  drawLabel(ctx, 'Conv1 (8ch)', NET.conv1[2].x, 145, conv1On ? C_CORAL : C_TEXT3);
+
+  // feat1 → pool1 连线
+  const pool1Left = { x: NET.pool1.x, y: NET.pool1.y + NET.pool1.size / 2 };
+  feat1Centers.forEach(fc => drawFan(ctx, fc.x, fc.y, [pool1Left], pool1On, C_CORAL));
+
+  // Pool1
+  drawPool(ctx, NET.pool1.x, NET.pool1.y, NET.pool1.size, pool1On);
+  drawLabel(ctx, 'Pool', NET.pool1.x + 13, 105, pool1On ? C_CORAL : C_TEXT3);
+
+  // pool1 → conv2 连线
+  const pool1Right = NET.pool1.x + NET.pool1.size;
+  const pool1Mid   = NET.pool1.y + NET.pool1.size / 2;
+  drawFan(ctx, pool1Right, pool1Mid, NET.conv2, conv2On, C_TERRACOTTA);
+
+  // Conv2 节点（分类器放大 r=7）
+  NET.conv2.forEach(n => drawNeuron(ctx, n.x, n.y, 7, conv2On ? C_TERRACOTTA : C_SURFACE, conv2On ? 14 : 0));
+
+  // conv2 → feat2 连线
+  const feat2Centers = NET.feat2.ys.map(fy => ({ x: NET.feat2.x + NET.feat2.size / 2, y: fy + NET.feat2.size / 2 }));
+  NET.conv2.forEach(n => drawFan(ctx, n.x, n.y, feat2Centers, pool2On, C_TERRACOTTA));
+
+  NET.feat2.ys.forEach(fy => drawFeatureMap(ctx, NET.feat2.x, fy, NET.feat2.size, conv2On));
+  drawLabel(ctx, 'Conv2 (16ch)', NET.conv2[3].x, 155, conv2On ? C_TERRACOTTA : C_TEXT3);
+
+  // feat2 → pool2 连线
+  const pool2Left = { x: NET.pool2.x, y: NET.pool2.y + NET.pool2.size / 2 };
+  feat2Centers.forEach(fc => drawFan(ctx, fc.x, fc.y, [pool2Left], pool2On, C_TERRACOTTA));
+
+  // Pool2
+  drawPool(ctx, NET.pool2.x, NET.pool2.y, NET.pool2.size, pool2On);
+  drawLabel(ctx, 'Pool', NET.pool2.x + 13, 105, pool2On ? C_TERRACOTTA : C_TEXT3);
+
+  // pool2 → fc_l 连线
+  const pool2Right = NET.pool2.x + NET.pool2.size;
+  const pool2Mid   = NET.pool2.y + NET.pool2.size / 2;
+  drawFan(ctx, pool2Right, pool2Mid, NET.fc_l, fcOn, C_TERRACOTTA);
+
+  // FC 连线 + 节点（分类器放大 r=7）
+  drawFCLines(ctx, NET.fc_l, NET.fc_r, fcOn);
+  NET.fc_l.forEach(n => drawNeuron(ctx, n.x, n.y, 7, fcOn ? C_TERRACOTTA : C_SURFACE, fcOn ? 12 : 0));
+  NET.fc_r.forEach(n => drawNeuron(ctx, n.x, n.y, 7, fcOn ? C_TERRACOTTA : C_SURFACE, fcOn ? 12 : 0));
+  drawLabel(ctx, 'FC', (NET.fc_l[1].x + NET.fc_r[1].x) / 2, 130, fcOn ? C_TERRACOTTA : C_TEXT3);
+
+  // fc_r → output 连线
+  drawFan(ctx, NET.fc_r[1].x, NET.fc_r[1].y, NET.output, outIdx >= 0, C_TERRACOTTA);
+
+  // 输出节点（5类）
+  const outColors = [C_TERRACOTTA, '#3b82f6', '#22c55e', '#f59e0b', '#a78bfa'];
+  NET.output.forEach((n, i) => {
+    const active = outIdx === i;
+    drawNeuron(ctx, n.x, n.y, active ? 10 : 7, outColors[i], active ? 20 : 0);
+  });
+  if (outIdx >= 0) {
+    const labels = ['上衣','鞋','包','下装','手表'];
+    drawLabel(ctx, labels[outIdx], NET.output[outIdx].x + 20, NET.output[outIdx].y + 4, outColors[outIdx]);
+  }
+  drawLabel(ctx, 'Output (5)', NET.output[2].x, 155, outIdx >= 0 ? C_TERRACOTTA : C_TEXT3);
+
+  // ── 编码器路径分割线 ──
+  ctx.beginPath();
+  ctx.moveTo(18, 168);
+  ctx.lineTo(1082, 168);
+  ctx.strokeStyle = C_SURFACE;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  drawLabel(ctx, '编码器路径 (512维特征向量)', 400, 178, C_TEXT3);
+
+  // 编码器输入图
+  if (img) {
+    ctx.globalAlpha = 0.6;
+    ctx.drawImage(img, NET.input_bot.x, NET.input_bot.y, 64, 64);
+    ctx.globalAlpha = 1.0;
+  }
+
+  // 编码器各层
+  const encStates = [enc1On, enc2On, enc3On, enc4On, enc5On];
+  const encLabels = ['16ch','32ch','64ch','128ch','256ch'];
+  NET.enc.forEach((nodes, li) => {
+    const on = encStates[li];
+    if (li > 0) drawEncConnections(ctx, NET.enc[li - 1], nodes, on);
+    nodes.forEach(n => drawNeuron(ctx, n.x, n.y, 3, on ? C_TEAL : C_SURFACE, on ? 8 : 0));
+    drawLabel(ctx, encLabels[li], nodes[1].x, 272, on ? C_TEAL : C_TEXT3);
+  });
+
+  // 512 向量球
+  if (vecOn) {
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = C_TEAL;
+  }
+  ctx.beginPath();
+  ctx.arc(NET.vec512.x, NET.vec512.y, NET.vec512.r, 0, Math.PI * 2);
+  ctx.fillStyle = vecOn ? C_TEAL + '44' : C_SURFACE + '55';
+  ctx.fill();
+  ctx.strokeStyle = vecOn ? C_TEAL : C_SURFACE;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = vecOn ? C_TEAL : C_TEXT3;
+  ctx.font = `500 10px system-ui`;
+  ctx.textAlign = 'center';
+  ctx.fillText('512', NET.vec512.x, NET.vec512.y + 4);
+  drawLabel(ctx, 'Feature Vec', NET.vec512.x, NET.vec512.y + 46, vecOn ? C_TEAL : C_TEXT3);
+
+  // 向量到 Chroma 检索
+  if (vecOn) {
+    ctx.beginPath();
+    ctx.moveTo(NET.vec512.x + NET.vec512.r, NET.vec512.y);
+    ctx.lineTo(NET.vec512.x + NET.vec512.r + 30, NET.vec512.y);
+    ctx.strokeStyle = C_TEAL + '88';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    drawLabel(ctx, 'Chroma DB', NET.vec512.x + NET.vec512.r + 60, NET.vec512.y + 4, C_TEAL);
+  }
+}
+
+// ─────────────────────────────────────────
+// 粒子系统
+// ─────────────────────────────────────────
+class Particle {
+  constructor(path, color, speed = 0.004) {
+    this.path   = path;
+    this.color  = color;
+    this.speed  = speed;
+    this.t      = 0;
+    this.done   = false;
+  }
+  pos() {
+    const segs = this.path.length - 1;
+    const total = this.t * segs;
+    const seg   = Math.min(Math.floor(total), segs - 1);
+    const frac  = total - seg;
+    const a = this.path[seg], b = this.path[seg + 1];
+    return { x: a.x + (b.x - a.x) * frac, y: a.y + (b.y - a.y) * frac };
+  }
+  update() {
+    this.t += this.speed;
+    if (this.t >= 1) { this.t = 1; this.done = true; }
+  }
+  draw(ctx) {
+    const { x, y } = this.pos();
+    ctx.shadowBlur  = 8;
+    ctx.shadowColor = this.color;
+    ctx.beginPath();
+    ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+}
+
+// ─────────────────────────────────────────
+// API 工具
+// ─────────────────────────────────────────
+async function callAPI(endpoint, blob) {
+  const fd = new FormData();
+  fd.append('image', blob, 'image.jpg');
+  const res = await fetch(endpoint, { method: 'POST', body: fd });
+  if (!res.ok) throw new Error(`${endpoint} 请求失败 (${res.status})`);
+  if (endpoint === '/classification') return res.text();
+  return res.json();
+}
+
+// ─────────────────────────────────────────
+// 显示结果卡片
+// ─────────────────────────────────────────
+function showDenoisingResult(data) {
+  const card = document.getElementById('result-denoising');
+  card.innerHTML = `
+    <h3><span class="dot" style="background:#d97757"></span>图像去噪</h3>
+    <div class="denoise-pair">
+      <div>
+        <img src="data:image/png;base64,${data.noisy_img}" alt="加噪图" />
+        <p class="pair-label">加噪输入</p>
+      </div>
+      <div>
+        <img src="data:image/png;base64,${data.denoised_image}" alt="去噪图" />
+        <p class="pair-label">去噪结果</p>
+      </div>
+    </div>`;
+  requestAnimationFrame(() => card.classList.add('visible'));
+}
+
+function showClassificationResult(text) {
+  const card = document.getElementById('result-classification');
+  const match = text.match(/：(.+)$/);
+  const category = match ? match[1].trim() : text;
+  card.innerHTML = `
+    <h3><span class="dot" style="background:#c96442"></span>商品分类</h3>
+    <div class="classify-result">
+      <div class="category">${category}</div>
+      <div class="raw-text">${text}</div>
+    </div>`;
+  requestAnimationFrame(() => card.classList.add('visible'));
+}
+
+function showSimilarityResult(data) {
+  const card = document.getElementById('result-similarity');
+  const imgs = data.indices_list.map(id =>
+    `<img src="/dataset/${id}.jpg" alt="相似图${id}" loading="lazy" />`
+  ).join('');
+  card.innerHTML = `
+    <h3><span class="dot" style="background:#14b8a6"></span>相似检索</h3>
+    <div class="sim-grid">${imgs}</div>
+    <p class="sim-hint">Top-5 相似商品</p>`;
+  requestAnimationFrame(() => card.classList.add('visible'));
+}
+
+// ─────────────────────────────────────────
+// 主动画控制器
+// ─────────────────────────────────────────
+let animRafId = null;   // 用于 resetDemo 取消动画
+
+function showErrorCard(msg) {
+  document.getElementById('stage-results').classList.remove('hidden');
+  const errCard = document.createElement('div');
+  errCard.className = 'result-card visible';
+  errCard.innerHTML = `<p style="color:#c96442">请求失败：${msg}</p>`;
+  document.getElementById('stage-results').appendChild(errCard);
+}
+
+async function startAnimation(ctx, img) {
+  const state = {};
+  let particles = [];
+
+  try {
+
+  // Phase 0：输入图淡入（500ms）
+  await new Promise(resolve => {
+    let phaseStart = null;
+    function fadeIn(ts) {
+      if (phaseStart === null) phaseStart = ts;
+      const alpha = Math.min((ts - phaseStart) / 500, 1);
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.globalAlpha = alpha;
+      drawNetwork(ctx, img, state);
+      ctx.globalAlpha = 1;
+      if (alpha < 1) animRafId = requestAnimationFrame(fadeIn);
+      else resolve();
+    }
+    animRafId = requestAnimationFrame(fadeIn);
+  });
+
+  // ── Phase 1：Conv1 激活（1800ms）+ /denoising ──
+  const phase1Path = [
+    { x: 82, y: 50 },
+    NET.conv1[2],
+    { x: NET.feat1.x + 9, y: 64 },
+    { x: NET.pool1.x + 13, y: 68 },
+  ];
+  for (let i = 0; i < 4; i++) particles.push(new Particle(phase1Path, C_CORAL, 0.003 + i * 0.0008));
+
+  await new Promise(resolve => {
+    let phaseStart = null;
+    function phase1(ts) {
+      if (phaseStart === null) phaseStart = ts;
+      const elapsed = ts - phaseStart;
+      if (elapsed > 1000 && !state.conv1On) { state.conv1On = true; }
+      if (elapsed > 1300 && !state.feat1On) { state.feat1On = true; }
+      if (elapsed > 1500 && !state.pool1On) { state.pool1On = true; }
+
+      particles.forEach(p => p.update());
+      particles = particles.filter(p => !p.done);
+      drawNetwork(ctx, img, state);
+      particles.forEach(p => p.draw(ctx));
+
+      if (elapsed < 1800) animRafId = requestAnimationFrame(phase1);
+      else resolve();
+    }
+    animRafId = requestAnimationFrame(phase1);
+  });
+
+  // 显示结果区域
+  document.getElementById('stage-results').classList.remove('hidden');
+
+  // 调用 /denoising（等待返回）
+  try {
+    const denoiseData = await callAPI('/denoising', selectedImage.blob);
+    showDenoisingResult(denoiseData);
+  } catch (err) { showErrorCard(err.message); }
+
+  // ── Phase 2：Conv2 + Pool2 + FC 激活（1700ms）+ /classification ──
+  particles = [];
+  const phase2Path = [
+    { x: NET.pool1.x + 26, y: 68 },
+    NET.conv2[3],
+    { x: NET.feat2.x + 9, y: 70 },
+    { x: NET.pool2.x + 13, y: 68 },
+    NET.fc_l[1],
+    NET.fc_r[1],
+  ];
+  for (let i = 0; i < 4; i++) particles.push(new Particle(phase2Path, C_TERRACOTTA, 0.003 + i * 0.0008));
+
+  await new Promise(resolve => {
+    let phaseStart = null;
+    function phase2(ts) {
+      if (phaseStart === null) phaseStart = ts;
+      const elapsed = ts - phaseStart;
+      if (elapsed > 400  && !state.conv2On) { state.conv2On = true; }
+      if (elapsed > 700  && !state.pool2On) { state.pool2On = true; }
+      if (elapsed > 1100 && !state.fcOn)    { state.fcOn    = true; }
+
+      particles.forEach(p => p.update());
+      particles = particles.filter(p => !p.done);
+      drawNetwork(ctx, img, state);
+      particles.forEach(p => p.draw(ctx));
+
+      if (elapsed < 1700) animRafId = requestAnimationFrame(phase2);
+      else resolve();
+    }
+    animRafId = requestAnimationFrame(phase2);
+  });
+
+  // 调用 /classification
+  try {
+    const classText = await callAPI('/classification', selectedImage.blob);
+    const catMap = { '上身衣服': 0, '鞋': 1, '包': 2, '下身衣服': 3, '手表': 4 };
+    const matchedCat = Object.keys(catMap).find(k => classText.includes(k));
+    if (matchedCat !== undefined) state.outIdx = catMap[matchedCat];
+    drawNetwork(ctx, img, state);
+    showClassificationResult(classText);
+  } catch (err) { showErrorCard(err.message); }
+
+  // ── Phase 3：编码器路径激活（1200ms）+ /simimages ──
+  particles = [];
+  const encFlat = NET.enc.map(nodes => nodes[1]); // 取每列中间节点（index 1, y=228）
+  const phase3Path = [
+    { x: 82, y: 217 },
+    ...encFlat,
+    { x: NET.vec512.x - NET.vec512.r, y: NET.vec512.y },
+  ];
+  for (let i = 0; i < 3; i++) particles.push(new Particle(phase3Path, C_TEAL, 0.0035 + i * 0.001));
+
+  await new Promise(resolve => {
+    let phaseStart = null;
+    function phase3(ts) {
+      if (phaseStart === null) phaseStart = ts;
+      const elapsed = ts - phaseStart;
+      const encKeys = ['enc1On','enc2On','enc3On','enc4On','enc5On'];
+      encKeys.forEach((k, i) => {
+        if (elapsed > 150 * (i + 1) && !state[k]) state[k] = true;
+      });
+      if (elapsed > 900 && !state.vecOn) state.vecOn = true;
+
+      particles.forEach(p => p.update());
+      particles = particles.filter(p => !p.done);
+      drawNetwork(ctx, img, state);
+      particles.forEach(p => p.draw(ctx));
+
+      if (elapsed < 1200) animRafId = requestAnimationFrame(phase3);
+      else resolve();
+    }
+    animRafId = requestAnimationFrame(phase3);
+  });
+
+  try {
+    // 调用 /simimages
+    const simData = await callAPI('/simimages', selectedImage.blob);
+    showSimilarityResult(simData);
+  } catch (err) { showErrorCard(err.message); }
+
+  } catch (err) {
+    console.error('动画引擎异常:', err);
+  } finally {
+    // 始终显示重置按钮，避免界面卡死
+    document.getElementById('reset-btn').style.display = 'block';
+  }
+}
+</script>
+</body>
+</html>

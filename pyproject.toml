@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smart-image-similarity"
+version = "0.1.0"
+description = "Training and deployment project for denoising, classification, and image similarity search."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "Flask>=2.0.0",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "numpy",
+    "chromadb>=0.4.0",
+    "Pillow>=9.0.0",
+    "tqdm",
+    "scikit-learn",
+    "scikit-image",
+    "matplotlib",
+    "pandas",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ['src']
+
